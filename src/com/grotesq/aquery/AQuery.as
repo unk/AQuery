@@ -27,10 +27,13 @@ package com.grotesq.aquery {
 	import flash.display.DisplayObject;
 	import flash.display.DisplayObjectContainer;
 	import flash.display.InteractiveObject;
+	import flash.display.MovieClip;
 	import flash.display.Stage;
 	import flash.events.Event;
 	import flash.events.MouseEvent;
+	import flash.geom.Rectangle;
 	import flash.system.ApplicationDomain;
+	import flash.utils.getDefinitionByName;
 	
 	/**
 	 * AS3용 Display List 도우미입니다.<br />
@@ -49,16 +52,16 @@ package com.grotesq.aquery {
 		//
 		////////////////////////////////////////////////////////////////////////////////
 		
-		public static const VERSION:String = "0.0.2";
-	
+		public static const VERSION:String = "0.0.4";
+		
 		////////////////////////////////////////////////////////////////////////////////
 		//
 		//	Class Variables
 		//
 		////////////////////////////////////////////////////////////////////////////////
-	
+		
 		private static var _stage:Stage;
-	
+		
 		////////////////////////////////////////////////////////////////////////////////
 		//
 		//	Class Properties
@@ -79,13 +82,13 @@ package com.grotesq.aquery {
 		 * 
 		 * @param stage stage 객체입니다.
 		 * @example
- * <listing version="3.0">
- * import com.grotesq.aquery.AQuery;
- * 
- * AQuery.initialize( stage );
- * // or
- * var $:AQuery = AQuery.initialize( stage );
- * </listing>
+		 * <listing version="3.0">
+		 * import com.grotesq.aquery.AQuery;
+		 * 
+		 * AQuery.initialize( stage );
+		 * // or
+		 * var $:AQuery = AQuery.initialize( stage );
+		 * </listing>
 		 */
 		public static function initialize( $stage:Stage ):AQuery
 		{
@@ -113,7 +116,7 @@ package com.grotesq.aquery {
 		{
 			if( $selector is String )
 			{
-				if( !_stage )
+				if( _stage == null )
 				{
 					AQuery.log( "Not initialized. Can't found stage." );
 					return new AQuery( null );
@@ -133,18 +136,18 @@ package com.grotesq.aquery {
 		////////////////////////////////////////////////////////////////////////////////
 		
 		private const RESERVED:Array = 	[
-											"DisplayObject",
-											"DisplayObjectContainer",
-											"InteractiveObject",
-											"Shape",
-											"Bitmap",
-											"SimpleButton",
-											"Loader",
-											"Sprite",
-											"MovieClip",
-											"Video",
-											"TextField"
-										];
+			"DisplayObject",
+			"DisplayObjectContainer",
+			"InteractiveObject",
+			"Shape",
+			"Bitmap",
+			"SimpleButton",
+			"Loader",
+			"Sprite",
+			"MovieClip",
+			"Video",
+			"TextField"
+		];
 		
 		////////////////////////////////////////////////////////////////////////////////
 		//
@@ -239,8 +242,21 @@ package com.grotesq.aquery {
 		}
 		
 		/*
-		 * Display Object Properties
+		* Display Object Properties
+		*/
+		
+		/**
+		 * DisplayObject의 alpha 속성과 동일합니다.
 		 */
+		public function get alpha():Number
+		{
+			return objects.length ? objects[ 0 ].alpha : NaN;
+		}
+		public function set alpha( $value:Number ):void
+		{
+			attr( { alpha: $value} );
+		}
+		
 		/**
 		 * DisplayObject의 blendMode 속성과 동일합니다.
 		 */
@@ -448,6 +464,47 @@ package com.grotesq.aquery {
 			attr( { z: $value } );
 		}
 		
+		/**
+		 * MovieClip의 currentFrame을 get/set 방식으로 읽고 쓸 수 있습니다.
+		 * Tween API등에서 유용하게 사용할 수 있습니다.
+		 */
+		public function get frame():int
+		{
+			if( objects[ 0 ] )
+			{
+				if( objects[ 0 ] is MovieClip )
+				{
+					return MovieClip( objects[ 0 ] ).currentFrame;
+				}
+			}
+			return NaN;
+		}
+		public function set frame( $value:int ):void
+		{
+			gotoAndStop( $value );
+		}
+		
+		/**
+		 * alpha를 조정하고 alpha가 0이 되었을 때 visible을 false로 설정합니다.
+		 * Tween API등에서 유용하게 사용할 수 있습니다.
+		 */
+		public function get autoAlpha():Number
+		{
+			return alpha;
+		}
+		public function set autoAlpha( $value:Number ):void
+		{
+			attr( { alpha: $value } );
+			if( $value == 0 )
+			{
+				attr( { visible: false } );
+			}
+			else
+			{
+				attr( { visible: true } );
+			}
+		}
+		
 		////////////////////////////////////////////////////////////////////////////////
 		//
 		//	Private Methods
@@ -462,11 +519,25 @@ package com.grotesq.aquery {
 			}
 		}
 		
-		////////////////////////////////////////////////////////////////////////////////
-		//
-		//	Protected Methods
-		//
-		////////////////////////////////////////////////////////////////////////////////
+		private function getClassPath( $className:String ):String
+		{
+			if( RESERVED.indexOf( $className ) != -1 )
+			{
+				switch( $className )
+				{
+					case'TextField':
+						$className = 'flash.text.TextField';
+						break;
+					case'Video':
+						$className = 'flash.media.Video';
+						break;
+					default:
+						$className = 'flash.display.' + $className;
+						break;
+				}
+			}
+			return $className;
+		}
 		
 		/**
 		 * 디스플레이 객체가 표현식에 해당하는지 여부를 검사합니다.
@@ -475,9 +546,14 @@ package com.grotesq.aquery {
 		 * @param $query 검사할 표현식
 		 * @return 유효할 경우에만 반환
 		 */
-		protected function parseObject( $object:DisplayObject, $query:String ):DisplayObject
+		private function parseObject( $object:DisplayObject, $query:String ):DisplayObject
 		{
 			if( $query == null )
+			{
+				return null;
+			}
+			
+			if( $object == null )
 			{
 				return null;
 			}
@@ -488,7 +564,7 @@ package com.grotesq.aquery {
 				{
 					if( $object.name == $query.substr( 1 ) )
 					{
-						 return $object;
+						return $object;
 					}
 					break;
 				}
@@ -518,21 +594,7 @@ package com.grotesq.aquery {
 						$query = $query.substr( 0, additionalIndex );
 					}
 					
-					if( RESERVED.indexOf( $query ) != -1 )
-					{
-						switch( $query )
-						{
-							case'TextField':
-								$query = 'flash.text.TextField';
-								break;
-			                case'Video':
-								$query = 'flash.media.Video';
-								break;
-			                default:
-								$query = 'flash.display.' + $query;
-								break;
-		                }
-					}
+					$query = getClassPath( $query );
 					
 					if( ApplicationDomain.currentDomain.hasDefinition( $query ) )
 					{
@@ -558,7 +620,7 @@ package com.grotesq.aquery {
 		/**
 		 * 부모 디스플레이 컨테이너 객체에서 표현식에 맞는 자식 객체를 탐색합니다.
 		 */
-		protected function getChildren( $parent:DisplayObjectContainer, $result:Vector.<DisplayObject>, $depth:int ):void
+		private function getChildren( $parent:DisplayObjectContainer, $result:Vector.<DisplayObject>, $depth:int ):void
 		{
 			if( $parent == null )
 			{
@@ -584,6 +646,12 @@ package com.grotesq.aquery {
 				}
 			}
 		}
+		
+		////////////////////////////////////////////////////////////////////////////////
+		//
+		//	Protected Methods
+		//
+		////////////////////////////////////////////////////////////////////////////////
 		
 		////////////////////////////////////////////////////////////////////////////////
 		//
@@ -739,7 +807,7 @@ package com.grotesq.aquery {
 		public function removeEvent( $type:String, $listener:Function, $useCapture:Boolean = false ):void
 		{
 			eachApply( function( $index:int, $element:DisplayObject ):void {
-				$element.addEventListener( $type, $listener, $useCapture );
+				$element.removeEventListener( $type, $listener, $useCapture );
 			} );
 		}
 		
@@ -856,6 +924,204 @@ package com.grotesq.aquery {
 				triggerEvent( new MouseEvent( MouseEvent.CLICK ) );
 			}
 			return this;
+		}
+		
+		/**
+		 * addEvent()와 동일합니다. jQuery 타입의 코드 구현을 원한다면 유용합니다.
+		 * EventDispatcher의 addEventListener를 구현하는 함수입니다.
+		 */
+		public function on( $type:String, $listener:Function, $useCapture:Boolean = false, $priority:int = 0, $useWeakReference:Boolean = false ):void
+		{
+			addEvent( $type, $listener, $useCapture, $priority, $useWeakReference );
+		}
+		
+		/**
+		 * removeEvent()와 동일합니다. jQuery 타입의 코드 구현을 원한다면 유용합니다.
+		 * EventDispatcher의 removeEventListener를 구현하는 함수입니다.
+		 */
+		public function off( $type:String, $listener:Function, $useCapture:Boolean = false ):void
+		{
+			removeEvent( $type, $listener, $useCapture );
+		}
+		
+		/**
+		 * 탐색한 객체에 무비클립이 있을 경우 gotoAndPlay 명령을 수행할 수 있습니다.
+		 */
+		public function gotoAndPlay( $frame:Object, $scene:String = null ):AQuery
+		{
+			eachApply( function( $index:int, $element:DisplayObject ):void {
+				if( $element.hasOwnProperty( "gotoAndPlay" ) )
+				{
+					Object( $element ).gotoAndPlay( $frame, $scene );
+				}
+			} );
+			return this;
+		}
+		
+		/**
+		 * 탐색한 객체에 무비클립이 있을 경우 gotoAndStop 명령을 수행할 수 있습니다.
+		 */
+		public function gotoAndStop( $frame:Object, $scene:String = null ):AQuery
+		{
+			eachApply( function( $index:int, $element:DisplayObject ):void {
+				if( $element.hasOwnProperty( "gotoAndStop" ) )
+				{
+					Object( $element ).gotoAndStop( $frame, $scene );
+				}
+			} );
+			return this;
+		}
+		
+		/**
+		 * 탐색한 객체에 무비클립이 있을 경우 play 명령을 수행할 수 있습니다.
+		 */
+		public function play():AQuery
+		{
+			eachApply( function( $index:int, $element:DisplayObject ):void {
+				if( $element.hasOwnProperty( "play" ) )
+				{
+					Object( $element ).play();
+				}
+			} );
+			return this;
+		}
+		
+		/**
+		 * 탐색한 객체에 무비클립이 있을 경우 stop 명령을 수행할 수 있습니다.
+		 */
+		public function stop():AQuery
+		{
+			eachApply( function( $index:int, $element:DisplayObject ):void {
+				if( $element.hasOwnProperty( "stop" ) )
+				{
+					Object( $element ).stop();
+				}
+			} );
+			return this;
+		}
+		
+		/**
+		 * 부모 컨테이너를 찾아 removeChild를 수행합니다.
+		 */
+		public function remove():AQuery	
+		{
+			eachApply( function( $index:int, $element:DisplayObject ):void {
+				if( $element.parent )
+				{
+					$element.parent.removeChild( $element );
+				}
+			} );
+			return this;
+		}
+		
+		/**
+		 * 클래스 경로나 클래스 자체를 전달해 객체를 새로 생성합니다.
+		 * $name 인수로 이름을 미리 지정하면 나중에 활용하기 편리합니다.
+		 */
+		public function create( $element:Object, $name:String = null ):AQuery
+		{
+			var definition:Class;
+			var object:DisplayObject;
+			
+			if( $element is String )
+			{
+				$element = getClassPath( String( $element ) );
+				
+				definition = getDefinitionByName( String( $element ) ) as Class;
+				if( definition )
+				{
+					object = new definition();
+				}
+			}
+			else if( $element is Class )
+			{
+				definition = $element as Class;
+				object = new definition();
+			}
+			
+			if( object )
+			{
+				if( $name )
+				{
+					object.name = $name;
+				}
+				
+				append( DisplayObject( object ) );
+			}
+			return this;
+		}
+		
+		/**
+		 * addChild와 비슷한 기능을 합니다.
+		 * $element는 DisplayObject일 수도 있고, AQuery 객체일 수도 있습니다.
+		 * $name을 지정하면 나중에 활용할 때 편리합니다.
+		 */
+		public function append( $element:Object, $name:String = null ):AQuery
+		{
+			if( objects[ 0 ] )
+			{
+				if( objects[ 0 ] is DisplayObjectContainer )
+				{
+					if( $element is AQuery )
+					{
+						AQuery( $element ).eachApply( function( $index:int, $el:DisplayObject ):void {
+							if( $name )
+							{
+								$el.name = $name;
+							}
+							DisplayObjectContainer( objects[ 0 ] ).addChild( $el );
+						} );
+					}
+					else if( $element is DisplayObject )
+					{
+						if( $name )
+						{
+							$element.name = $name;
+						}
+						DisplayObjectContainer( objects[ 0 ] ).addChild( DisplayObject( $element ) );
+					}
+				}
+			}
+			return this;
+		}
+		
+		/**
+		 * AS2의 duplicateMovieClip과 비슷한 역할을 합니다.
+		 * 객체의 클래스를 찾아 새로 생성하기 때문에, 생성 이후의 변화 상태가 완전하게 복제되지 않을 수 있습니다.
+		 */
+		public function duplicate( $source:DisplayObject ):AQuery
+		{
+			var sourceClass:Class = Object( $source ).constructor;
+			var duplicate:DisplayObject = new sourceClass();
+			
+			duplicate.transform = $source.transform;
+			duplicate.filters = $source.filters;
+			duplicate.cacheAsBitmap = $source.cacheAsBitmap;
+			duplicate.opaqueBackground = $source.opaqueBackground;
+			
+			if( $source.scale9Grid)
+			{
+				var rect:Rectangle = $source.scale9Grid;
+				duplicate.scale9Grid = rect;
+			}
+			if( $source.hasOwnProperty( "graphics" ) && duplicate.hasOwnProperty( "graphics" ) )
+			{
+				Object( duplicate ).graphics.copyFrom( Object( $source ).graphics );
+			}
+			
+			return AQuery.find( duplicate );
+		}
+		
+		/**
+		 * 특정 인덱스의 raw object를 얻을 수 있습니다.
+		 */
+		public function getItem( $index:int ):DisplayObject
+		{
+			if( objects[ $index ] )
+			{
+				return objects[ $index ];
+			}
+			return null;
 		}
 	}
 }
