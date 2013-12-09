@@ -930,18 +930,20 @@ package com.grotesq.aquery {
 		 * addEvent()와 동일합니다. jQuery 타입의 코드 구현을 원한다면 유용합니다.
 		 * EventDispatcher의 addEventListener를 구현하는 함수입니다.
 		 */
-		public function on( $type:String, $listener:Function, $useCapture:Boolean = false, $priority:int = 0, $useWeakReference:Boolean = false ):void
+		public function on( $type:String, $listener:Function, $useCapture:Boolean = false, $priority:int = 0, $useWeakReference:Boolean = false ):AQuery
 		{
 			addEvent( $type, $listener, $useCapture, $priority, $useWeakReference );
+			return this;
 		}
 		
 		/**
 		 * removeEvent()와 동일합니다. jQuery 타입의 코드 구현을 원한다면 유용합니다.
 		 * EventDispatcher의 removeEventListener를 구현하는 함수입니다.
 		 */
-		public function off( $type:String, $listener:Function, $useCapture:Boolean = false ):void
+		public function off( $type:String, $listener:Function, $useCapture:Boolean = false ):AQuery
 		{
 			removeEvent( $type, $listener, $useCapture );
+			return this;
 		}
 		
 		/**
